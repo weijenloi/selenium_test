@@ -16,6 +16,11 @@ Packages requirements for running test
 
     pip install -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
 
+
+## To run Test
+
+    python maintest.py
+
 ### First draft implementation
 
 Unit test written for Chrome Browser and Windows Platform
@@ -23,6 +28,7 @@ Test1 - Move small circle to big circle and assert text
 Test2 - Upload file and assert upload status
 #### To do
 
+C# version of Unit Test
 Firefox
 Other OS
 
