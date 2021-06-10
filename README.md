@@ -10,7 +10,7 @@ Setup environment before running test
 Packages requirements for running test
 
     .\.env\Scripts\activate
-    pip install -r requirement.txt
+    pip install -r requirements.txt
 
 ## If SSL Error
 
