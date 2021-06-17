@@ -5,17 +5,16 @@ import os
 import socket
 import sys
 import time
+import re
 import unittest
 
-import pyautogui
-import pygetwindow as gw
+
 from loguru import logger
 from selenium import webdriver
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.expected_conditions import \
-    visibility_of_element_located as visibility
+from selenium.webdriver.support.expected_conditions import visibility_of_element_located as visibility
 from selenium.webdriver.support.ui import WebDriverWait as waiter
 
 from build_log import StreamToLogger, build_logger
@@ -41,7 +40,11 @@ class MyTest(unittest.TestCase):
                 "plugins.always_open_pdf_externally": True,
             },
         )
-        self.driver = webdriver.Chrome(options=options, executable_path=r'.\chromedriver.exe')
+        if sys.platform=='linux':
+            chromedriver = r'.\chromedriver'
+        else:
+            chromedriver = r'.\chromedriver.exe'
+        self.driver = webdriver.Chrome(options=options, executable_path=chromedriver)
         # return super().setUp()
 
     def test_my_work1(self):
@@ -76,10 +79,11 @@ class MyTest(unittest.TestCase):
         # click select files
         xpath = '//*[@id="example"]/div/div/div/div/div'
         waiter(self.driver, 60).until(visibility((By.XPATH, xpath))).click()
-        wait_for_window('Open')
-        activate_window('Open')
+        # wait_for_window('Open')
+        activate_win('Open')
         filepath = os.path.join(os.getcwd(), 'text.txt')
         time.sleep(3)
+        import pyautogui
         pyautogui.write(filepath)
         pyautogui.hotkey('Enter')
 
@@ -109,10 +113,7 @@ def setup_log(log_path):
 def assert_text(driver, text, selector="html", by=By.CSS_SELECTOR, timeout=None):
     if wait_for_element_visible(driver, selector, by, timeout):
         element = driver.find_element(by=by, value=selector)
-        if element.is_displayed() and text in element.text:
-            return True
-        else:
-            return False
+        return bool(element.is_displayed() and text in element.text)
 
 
 def wait_for_element_visible(driver, selector, by=By.CSS_SELECTOR, timeout=None):
@@ -123,6 +124,7 @@ def wait_for_element_visible(driver, selector, by=By.CSS_SELECTOR, timeout=None)
 
 
 def wait_for_window(window_name, timeout=60):
+    import pygetwindow as gw
     for _ in range(timeout):
         try:
             window = gw.getWindowsWithTitle(window_name)[0]
@@ -135,6 +137,105 @@ def wait_for_window(window_name, timeout=60):
 def activate_window(window_name):
     window = gw.getWindowsWithTitle(window_name)[0]
     window.activate()
+
+
+
+def activate_win(win_name,timeout=60):
+    for _ in range(timeout):
+        try:
+            if sys.platform in ['linux', 'linux2']:
+                try:
+                    import gi
+
+                    gi.require_version('Wnck', '3.0')
+                    gi.require_version('Gtk', '3.0')
+                    from gi.repository import Gtk, Wnck
+                except ImportError:
+                    logger.info("wnck not installed")
+                    wnck = None
+                if wnck is not None:
+                    screen = Wnck.Screen.get_default()
+                    while Gtk.events_pending():
+                        Gtk.main_iteration()
+                    titlePattern = re.compile(f'.*{win_name}.*')
+                    windows = screen.get_windows()
+                    for w in windows:
+                        if titlePattern.match(w.get_name()):
+                            print(w.get_name())
+                            w.activate(int(time.time()))
+                    raise Exception('Window Not Found')
+            elif sys.platform in ['Windows', 'win32', 'cygwin']:
+                window = gw.getWindowsWithTitle(win_name)[0]
+                window.activate()
+            else:
+                print("sys.platform={platform} is unknown. Please report.".format(platform=sys.platform))
+                print(sys.version)
+        except IndexError:
+            pass
+        except Exception as exception:
+            breakpoint()
+        time.sleep(1)
+
+def get_active_window():
+    """
+    Get the currently active window.
+
+    Returns
+    -------
+    string :
+        Name of the currently active window.
+    """
+    import sys
+
+    active_window_name = None
+    if sys.platform in ['linux', 'linux2']:
+        # Alternatives: http://unix.stackexchange.com/q/38867/4784
+        try:
+            import wnck
+        except ImportError:
+            logger.info("wnck not installed")
+            wnck = None
+        if wnck is not None:
+            screen = wnck.screen_get_default()
+            screen.force_update()
+            window = screen.get_active_window()
+            if window is not None:
+                pid = window.get_pid()
+                with open("/proc/{pid}/cmdline".format(pid=pid)) as f:
+                    active_window_name = f.read()
+        else:
+            try:
+                from gi.repository import Gtk, Wnck
+
+                gi = "Installed"
+            except ImportError:
+                logger.info("gi.repository not installed")
+                gi = None
+            if gi is not None:
+                Gtk.init([])  # necessary if not using a Gtk.main() loop
+                screen = Wnck.Screen.get_default()
+                screen.force_update()  # recommended per Wnck documentation
+                active_window = screen.get_active_window()
+                pid = active_window.get_pid()
+                with open("/proc/{pid}/cmdline".format(pid=pid)) as f:
+                    active_window_name = f.read()
+    elif sys.platform in ['Windows', 'win32', 'cygwin']:
+        # http://stackoverflow.com/a/608814/562769
+        import win32gui
+
+        window = win32gui.GetForegroundWindow()
+        active_window_name = win32gui.GetWindowText(window)
+    elif sys.platform in ['Mac', 'darwin', 'os2', 'os2emx']:
+        # http://stackoverflow.com/a/373310/562769
+        from AppKit import NSWorkspace
+
+        active_window_name = NSWorkspace.sharedWorkspace().activeApplication()['NSApplicationName']
+    else:
+        print("sys.platform={platform} is unknown. Please report.".format(platform=sys.platform))
+        print(sys.version)
+    print("Active window: %s" % str(get_active_window()))
+    return active_window_name
+
 
 
 if __name__ == '__main__':

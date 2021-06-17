@@ -41,4 +41,8 @@ Other OS
 1. Still on research on how to write back test result to a file
 
 
-
+### Linux Ubuntu
+1. NotImplementedError: PyGetWindow currently does not support Linux.
+sudo apt-get install -y libwnck-3-0 
+pip3 install vext
+pip3 install vext.gi
